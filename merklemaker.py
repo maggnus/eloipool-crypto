@@ -692,6 +692,7 @@ class merkleMaker(threading.Thread):
 				self.merkleMaker_I()
 			except:
 				self.logger.critical(traceback.format_exc())
+				sleep(2)
 	
 	def start(self, *a, **k):
 		self._prepare()
