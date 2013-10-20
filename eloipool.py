@@ -464,6 +464,7 @@ def buildStratumData(share, merkleroot):
 	data += share['nonce'][::-1]
 	
 	share['data'] = data
+	share['height'] = height
 	return data
 
 def IsJobValid(wli, wluser = None):
