@@ -39,6 +39,9 @@ import logging.handlers
 
 rootlogger = logging.getLogger(None)
 logformat = getattr(config, 'LogFormat', '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
+
+ScryptCoin = getattr(config, 'ScryptCoin')
+
 logformatter = logging.Formatter(logformat)
 if len(rootlogger.handlers) == 0:
 	logging.basicConfig(
@@ -197,7 +200,7 @@ from merklemaker import MakeBlockHeader
 from struct import pack, unpack
 import threading
 from time import time
-from util import PendingUpstream, RejectedShare, bdiff1target, dblsha, LEhash2int, swap32, target2bdiff, target2pdiff
+from util import PendingUpstream, RejectedShare, bdiff1target, dblsha, LEhash2int, swap32, target2bdiff, target2pdiff, scrypt
 import jsonrpc
 import traceback
 
@@ -223,9 +226,13 @@ def submitGotwork(info):
 
 def clampTarget(target, DTMode):
 	# ShareTarget is the minimum
-	if target is None or target > config.ShareTarget:
-		target = config.ShareTarget
-	
+	if ScryptCoin:
+		if target is None or target > config.ShareTarget / 64:
+		    target = config.ShareTarget / 64
+	else:
+		if target is None or target > config.ShareTarget:
+		    target = config.ShareTarget
+
 	# Never target above the network, as we'd lose blocks
 	if target < networkTarget:
 		target = networkTarget
@@ -383,7 +390,7 @@ def blockSubmissionThread(payload, blkhash, share):
 			try:
 				try:
 					# bitcoind 0.5/0.6 getmemorypool
-					reason = UpstreamBitcoindJSONRPC.getmemorypool(payload)
+					reason = UpstreamBitcoindJSONRPC.getblocktemplate({'mode': 'submit', 'data': payload})
 				except:
 					# Old BIP 22 draft getmemorypool
 					reason = UpstreamBitcoindJSONRPC.getmemorypool(payload, {})
@@ -532,6 +539,11 @@ def checkShare(share):
 	blkhash = dblsha(data)
 	if blkhash[28:] != b'\0\0\0\0':
 		raise RejectedShare('H-not-zero')
+	if ScryptCoin:
+		blkhash = scrypt(data)
+	else:
+		if blkhash[28:] != b'\0\0\0\0':
+			raise RejectedShare('H-not-zero')
 	blkhashn = LEhash2int(blkhash)
 	
 	global networkTarget
@@ -598,6 +610,8 @@ def checkShare(share):
 	if workTarget is None:
 		workTarget = config.ShareTarget
 	if blkhashn > workTarget:
+		print(int(blkhashn))
+		print(workTarget)
 		raise RejectedShare('high-hash')
 	share['target'] = workTarget
 	share['_targethex'] = '%064x' % (workTarget,)

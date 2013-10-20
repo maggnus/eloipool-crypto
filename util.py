@@ -18,8 +18,27 @@ from hashlib import sha256
 from math import log
 import re
 import string
-from struct import unpack
+from struct import pack, unpack
 import traceback
+import argparse
+import importlib
+argparser = argparse.ArgumentParser()
+argparser.add_argument('-c', '--config', help='Config name to load from config_<ARG>.py')
+
+args = argparser.parse_args()
+configmod = 'config'
+if not args.config is None:
+	configmod = 'config_%s' % (args.config,)
+__import__(configmod)
+config = importlib.import_module(configmod)
+
+ScryptCoin = getattr(config, 'ScryptCoin')
+
+if ScryptCoin:
+	from ltc_scrypt import getPoWHash
+
+def scrypt(b):
+	return getPoWHash(b)
 
 def YN(b):
 	if b is None:
@@ -38,7 +57,10 @@ def target2pdiff(target):
 	pdiff = round(2**(224 - log(target, 2)), 8)
 	return _maybe_int(pdiff)
 
-bdiff1target = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
+if ScryptCoin:
+	bdiff1target = 0x0000FFFF00000000000000000000000000000000000000000000000000000000
+else:
+	bdiff1target = 0x00000000FFFF0000000000000000000000000000000000000000000000000000
 
 def target2bdiff(target):
 	bdiff = bdiff1target / target
