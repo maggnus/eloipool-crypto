@@ -463,8 +463,9 @@ def buildStratumData(share, merkleroot):
 	data += bits
 	data += share['nonce'][::-1]
 	
-	share['data'] = data
+	share['bits'] = b2a_hex(bits).decode('utf8')
 	share['height'] = height
+	share['data'] = data
 	return data
 
 def IsJobValid(wli, wluser = None):
@@ -537,16 +538,15 @@ def checkShare(share):
 		raise RejectedShare('duplicate')
 	DupeShareHACK[data] = None
 	
-	blkhash = dblsha(data)
-	if blkhash[28:] != b'\0\0\0\0':
-		raise RejectedShare('H-not-zero')
 	if ScryptCoin:
 		blkhash = scrypt(data)
 	else:
+		blkhash = dblsha(data)
 		if blkhash[28:] != b'\0\0\0\0':
 			raise RejectedShare('H-not-zero')
 	blkhashn = LEhash2int(blkhash)
-	
+	share['blkhash'] = ('%x' % blkhashn)
+
 	global networkTarget
 	logfunc = getattr(checkShare.logger, 'info' if blkhashn <= networkTarget else 'debug')
 	logfunc('BLKHASH: %64x' % (blkhashn,))
