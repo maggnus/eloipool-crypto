@@ -29,7 +29,6 @@ config = importlib.import_module(configmod)
 
 if not hasattr(config, 'ServerName'):
 	config.ServerName = 'Unnamed Eloipool'
-
 if not hasattr(config, 'ShareTarget'):
 	config.ShareTarget = 0x00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
@@ -40,7 +39,9 @@ import logging.handlers
 rootlogger = logging.getLogger(None)
 logformat = getattr(config, 'LogFormat', '%(asctime)s\t%(name)s\t%(levelname)s\t%(message)s')
 
+ServerName = getattr(config, 'ServerName')
 ScryptCoin = getattr(config, 'ScryptCoin')
+CryptoCoin = getattr(config, 'CryptoCoin')
 
 logformatter = logging.Formatter(logformat)
 if len(rootlogger.handlers) == 0:
@@ -462,9 +463,19 @@ def buildStratumData(share, merkleroot):
 	data += share['ntime'][::-1]
 	data += bits
 	data += share['nonce'][::-1]
-	
-	share['bits'] = b2a_hex(bits).decode('utf8')
+
+	share['bits'] = b2a_hex(bits[::-1]).decode('utf8')
 	share['height'] = height
+	share['merkleroot'] = b2a_hex(merkleroot[::-1]).decode('utf8')
+	share['prevblock'] = b2a_hex(prevBlock[::-1]).decode('utf8')
+	share['blkhash'] = b2a_hex(dblsha(data)[::-1]).decode('utf8')
+	if ScryptCoin:
+		share['crypto'] = 'scrypt'
+	else:
+		share['crypto'] = 'sha256'
+	share['coin'] = CryptoCoin
+	share['server'] = ServerName
+	# do not touch!
 	share['data'] = data
 	return data
 
@@ -545,7 +556,6 @@ def checkShare(share):
 		if blkhash[28:] != b'\0\0\0\0':
 			raise RejectedShare('H-not-zero')
 	blkhashn = LEhash2int(blkhash)
-	share['blkhash'] = ('%x' % blkhashn)
 
 	global networkTarget
 	logfunc = getattr(checkShare.logger, 'info' if blkhashn <= networkTarget else 'debug')
