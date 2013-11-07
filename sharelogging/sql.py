@@ -19,6 +19,8 @@ from queue import Queue
 import threading
 import traceback
 from util import shareLogFormatter
+import pprint
+import time
 
 _logger = logging.getLogger('sharelogging.sql')
 
@@ -48,11 +50,13 @@ class sql:
 	
 	def _doInsert(self, o):
 		(stmt, params) = o
+		if self.db.closed is 2:
+			self._connect()
 		dbc = self.db.cursor()
 		try:
 			dbc.execute(stmt, params)
 		except BaseException as e:
-			_logger.critical('Error inserting data: %s%s' % ((stmt, params), traceback.format_exc()))
+			_logger.critical('Error inserting data: %s --> %s' % ((stmt, params), traceback.format_exc()))
 			self.exceptions.append((stmt, params, e))
 			return
 		self.db.commit()
@@ -95,7 +99,13 @@ class sql:
 		self.pstmt = shareLogFormatter(stmt, psf)
 	
 	def _connect(self):
-		self.db = self._mod.connect(**self.opts.get('dbopts', {}))
+		print("Start connection...")
+		try:
+			self.db = self._mod.connect(**self.opts.get('dbopts', {}))
+		except:
+			print("Connection problems")
+			time.sleep(1)
+			self._connect()
 	
 	def logShare(self, share):
 		o = self.pstmt.applyToShare(share)
@@ -106,4 +116,5 @@ class sql:
 		self._queue.put(None)
 	
 	def _shutdown(self):
-		pass # TODO
+		self._connect()
+		#pass # TODO
